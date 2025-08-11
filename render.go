@@ -2,6 +2,9 @@ package sr
 
 import "math"
 
+
+const PI = 3.1415926535897932384626433832795028841971693993751058209749445923078164062
+
 type Color struct {
     r, g, b float32
 }
@@ -118,6 +121,7 @@ func Disable(v int) {
 }
 
 func Lightfv(id, attribute int, value []float32) {
+
     var selectedLight *Light
     switch id {
     case LIGHTING0: selectedLight = &Lights[0]
@@ -125,7 +129,7 @@ func Lightfv(id, attribute int, value []float32) {
     case LIGHTING2: selectedLight = &Lights[2]
     case LIGHTING3: selectedLight = &Lights[3]
     default:
-        panic("invalid light ID passed to Lightfv")
+        panic("Invalid light ID")
     }
     switch attribute {
     case POSITION:
@@ -138,6 +142,8 @@ func Lightfv(id, attribute int, value []float32) {
         }
     case DIFFUSE:
         selectedLight.Color = Color{value[0],value[1],value[2]}
+    default:
+        panic("Invalid light attribute")
     }
 }
 
@@ -161,10 +167,8 @@ func Vertex3f(x, y, z float32) {
         screenCoordsx[j], screenCoordsy[j] = viewportTransform(perspectiveDivide(transformed))
     }
 
-    // Per-face lighting
-    // Face normal in view space
-    v0 := transformedVerts[0]
-    v1 := transformedVerts[1]
+    v0 := transformedVerts[0] // Per-face lighting
+    v1 := transformedVerts[1] // Face normal in view space
     v2 := transformedVerts[2]
 
     edge1 := Vec3{v1.x - v0.x, v1.y - v0.y, v1.z - v0.z}
@@ -270,6 +274,38 @@ func Vertex3f(x, y, z float32) {
 }
 
 
+
+
+func Translatef(f []float32){
+    
+}
+
+
+func Rotatef(f []float32){
+    if len(f) < 4 {
+        panic("Rotatef requires 4 values: angle (deg), x, y, z")
+    }
+    angle := f[0] * (PI / 180.0) // degrees to radians
+    x, y, z := f[1], f[2], f[3]
+    length := float32(math.Sqrt(float64(x*x + y*y + z*z))) // normalize axis
+    x /= length
+    y /= length
+    z /= length
+    
+    
+    c := float32(math.Cos(float64(angle)))
+    s := float32(math.Sin(float64(angle)))
+    ic := 1 - c
+    r := [16]float32{
+        c + x*x*ic,   y*x*ic+z*s, z*x*ic-y*s, 0,
+        x*y*ic-z*s,   c + y*y*ic, z*y*ic+x*s, 0,
+        x*z*ic+y*s,   y*z*ic-x*s, c + z*z*ic, 0,
+        0,            0,          0,          1,
+    }
+    MatrixModelView = MultMatrix(MatrixModelView, r)
+}
+
+//~ func Blend
 
 // yet to decide an portable way of handling colors
 // an 16 color terminal view would have 8 colors with 3 levels of brightness
