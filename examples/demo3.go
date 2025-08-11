@@ -48,15 +48,18 @@ func main() {
     )
 
 	for {
-		camPos := Vec3{ // Update camera position to orbit around the solid
-			x: float32(math.Cos(angleYaw)) * float32(math.Cos(anglePitch)) * radius,
-			y:                               float32(math.Sin(anglePitch)) * radius,
-			z: float32(math.Sin(angleYaw)) * float32(math.Cos(anglePitch)) * radius,
-		}
-
+        camPos := Vec3{7,7,7}
         view := sr.LookAt( camPos.x, camPos.y, camPos.z, 0, 0, 0)
         sr.SetCamera(proj, view)
         sr.ClearColor(0,0,0)
+
+        sr.Rotatef([]float32{
+            float32(angleYaw),
+            0.1,
+            1.0,
+            0,
+        })
+        angleYaw += 2.0
         sr.Begin()
             for v := 0; v < len(sphere); v+=4 {
                 sr.Color3f( 1.0, 0, 0.0)
@@ -82,20 +85,8 @@ func main() {
         buffer = buffer[:0:0]
         
         time.Sleep(time.Second / 60.0)
-        
-        maxPitch := PI / 2 * 0.90 // Clamp pitch and reverse spin to avoid and gimbal locking over poles
-        if anglePitch > maxPitch {
-            speedv = -speedv
-            anglePitch = maxPitch
-        } else if anglePitch < -maxPitch {
-            speedv = -speedv
-            anglePitch = -maxPitch
-        }
-		angleYaw += speedh
-        anglePitch += speedv
     }
 }
-
 
 var sphere = [][3]float32{
 	{ 0.195090,0.980785,-0.000001 }, 
