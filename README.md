@@ -1,5 +1,9 @@
 # go-sr
-Software-based implementation of a subset of Opengl 1 in 500 lines of Go
+Software-based subset of Opengl 1 in 500 lines of Go
+
+## Features
+- Quad drawing (points, lines, filled)
+- Per-face lighting (directional and point)
 
 ## Usage 
 ```
