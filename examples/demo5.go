@@ -21,13 +21,12 @@ const (
     aspect = float32(width*5)/float32(height*8) // aspect ratio (adjusted to 5:8, for a square output on the terminal)
     near   = 0.1                                // near plane
     far    = 100.0                              // far plane
-    radius = 10.0                               // camera rotation radius
-    speedh = 0.02                               // horizontal camera spin (radians per frame)
 )
 
 var (
     buffer []byte
     colors string = " ------========+++++++++********#########%%%%%%%%@@"
+    angle   float64 = 0
 )
 
 func init() {
@@ -45,11 +44,6 @@ func main() {
     )
 	proj := sr.Frustum(left, right, bottom, top, near, far) // Set up perspective projection
     
-	var angleYaw   float64 = 0
-    var anglePitch float64 = 60.0 * PI / 180.0
-
-	var speedv float64 = 0.01 // vertical camera spin (radians per frame)
-    
     sr.Enable(sr.LIGHTING0)
     sr.Lightfv(sr.LIGHTING0,sr.POSITION,[]float32{5.0, 0.0, 1.0, 1.0})
     sr.Lightfv(sr.LIGHTING0,sr.DIFFUSE, []float32{1.0, 1.0, 1.0})
@@ -57,26 +51,21 @@ func main() {
 	for {
         start := time.Now()
         
-        maxPitch := PI / 2 * 0.90 // Clamp pitch and reverse spin to avoid and gimbal locking over poles
-        if anglePitch > maxPitch {
-            speedv = -speedv
-            anglePitch = maxPitch
-        } else if anglePitch < -maxPitch {
-            speedv = -speedv
-            anglePitch = -maxPitch
-        }
-		camPos := Vec3{ // Update camera position to orbit around the solid
-			x: float32(math.Cos(angleYaw)) * float32(math.Cos(anglePitch)) * radius,
-			y:                               float32(math.Sin(anglePitch)) * radius,
-			z: float32(math.Sin(angleYaw)) * float32(math.Cos(anglePitch)) * radius,
-		}
-		angleYaw += speedh
-        anglePitch += speedv
+		camPos := Vec3{ 8,8,8 }
         
         view := sr.LookAt( camPos.x, camPos.y, camPos.z, 0, 0, 0)
         sr.SetCamera(proj, view)
 
         sr.ClearColor(0,0,0)
+
+        sr.Rotatef([]float32{
+            float32(angle),
+            0.1,
+            0.5,
+            -0.1,
+        })
+		angle += 2
+
         sr.Begin()
             for v := 0; v < len(suzanne); v+=4 {
                 sr.Color3f( 1, 1, 1)
