@@ -22,8 +22,6 @@ const (
     aspect = float32(width*5)/float32(height*8) // aspect ratio (adjusted to 5:8, for a square output on the terminal)
     near   = 0.1                                // near plane
     far    = 100.0                              // far plane
-    radius = 20.0                               // camera rotation radius
-    speedh = 0.02                               // horizontal camera spin (radians per frame)
 )
 
 var (
@@ -37,6 +35,7 @@ var (
         "\033[0;36m",
     }
     colorDefault = "\033[0;37m"
+    angle float32 = 0
 )
 
 func init() {
@@ -54,32 +53,22 @@ func main() {
     )
 	proj := sr.Frustum(left, right, bottom, top, near, far) // Set up perspective projection
     
-	var angleYaw   float64 = 0
-    var anglePitch float64 = 60.0 * PI / 180.0
-
-	var speedv float64 = 0.01 // vertical camera spin (radians per frame)
-    
 	for {
         
-        maxPitch := PI / 2 * 0.90 // Clamp pitch and reverse spin to avoid and gimbal locking over poles
-        if anglePitch > maxPitch {
-            speedv = -speedv
-            anglePitch = maxPitch
-        } else if anglePitch < -maxPitch {
-            speedv = -speedv
-            anglePitch = -maxPitch
-        }
-		camPos := Vec3{ // Update camera position to orbit around the solid
-			x: float32(math.Cos(angleYaw)) * float32(math.Cos(anglePitch)) * radius,
-			y:                               float32(math.Sin(anglePitch)) * radius,
-			z: float32(math.Sin(angleYaw)) * float32(math.Cos(anglePitch)) * radius,
-		}
-		angleYaw += speedh
-        anglePitch += speedv
+		camPos := Vec3{ 20,20,20 }
         
         view := sr.LookAt( camPos.x, camPos.y, camPos.z, 0, 1.0, 0)
         sr.SetCamera(proj, view)
         sr.ClearColor(0,0,0)
+        
+        sr.Rotatef([]float32{
+            float32(angle),
+            0.1,
+            1.0,
+            0,
+        })
+        angle += 2.0
+        
         sr.Begin()
             for v := 0; v < len(teapot); v+=4 {
                 sr.Color3f( 0.1 + 0.1 * float32((v/4)%len(colors)), 0.0, 0.0)
