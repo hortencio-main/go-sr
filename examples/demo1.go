@@ -5,7 +5,7 @@ package main
 import (
 	"math"
     "fmt"
-	"sr"
+	"github.com/hortencio-main/go-sr"
 )
 
 type Vec3 struct {
