@@ -1,5 +1,5 @@
 # go-sr
-Software-based subset of Opengl 1 in 500 lines of Go
+Software-based subset of Opengl 1 in 600 lines of Go
 
 ## Features
 - Quad drawing (points, lines, filled)
