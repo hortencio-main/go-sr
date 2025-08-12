@@ -484,6 +484,10 @@ func drawLine(a, b IVec2, distance float32) []IVec2 {
 
     err := dx + dy
     for {
+        if (x0 < 0) || (x0 > (framebuffer.h-1)) || (y0 < 0) || (y0 > (framebuffer.v-1)) {
+            break
+        }
+		
         points = append(points, IVec2{x0, y0})
         
         Colors = append(Colors, SubmitC) // temporary: color the vertex
