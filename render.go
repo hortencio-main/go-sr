@@ -2,10 +2,9 @@ package sr
 
 import "math"
 
-
 const PI = 3.1415926535897932384626433832795028841971693993751058209749445923078164062
 
-type Color struct {
+type SRColor struct {
     r, g, b float32
 }
 
@@ -23,18 +22,18 @@ type Vec4 struct {
 
 type Quad struct {
     v [4]Vec4
-    c Color
+    c SRColor
 }
 
 type Framebuffer struct {
     h, v int
-    d    []Color
+    d    []SRColor
 }
 
 type Light struct {
     Pos  Vec3    // Position (for point lights)
     Dir  Vec3    // Direction (for directional lights)
-    Color Color  // RGB intensity
+    Color SRColor  // RGB intensity
     Type  int    // 0 = directional, 1 = point
     enabled bool
 }
@@ -66,14 +65,10 @@ var (
     MatrixModelView [16]float32
     Submit  Quad
     SubmitI int
-    SubmitC Color
+    SubmitC SRColor
     polygonModeFront int
     polygonModeBack  int
     Lights = [4]Light{}
-    
-    Vertices    []IVec2
-    Colors      []Color
-    Depth       []float32
     lastVertex  *IVec2
 )
 
@@ -81,7 +76,7 @@ func Viewport(h, v int) {
     framebuffer = Framebuffer{
         h: h,
         v: v,
-        d: make([]Color, h*v),
+        d: make([]SRColor, h*v),
     }
     zBuffer = make([]float32, h*v)
 }
@@ -92,10 +87,8 @@ func XY() (int,int) {
 
 func PolygonMode(face, mode int) {
     switch face {
-    case FRONT:
-        polygonModeFront = mode
-    case BACK:
-        polygonModeBack = mode
+    case FRONT: polygonModeFront = mode
+    case BACK:  polygonModeBack = mode
     case FRONT_AND_BACK:
         polygonModeFront = mode
         polygonModeBack = mode
@@ -121,15 +114,13 @@ func Disable(v int) {
 }
 
 func Lightfv(id, attribute int, value []float32) {
-
     var selectedLight *Light
     switch id {
     case LIGHTING0: selectedLight = &Lights[0]
     case LIGHTING1: selectedLight = &Lights[1]
     case LIGHTING2: selectedLight = &Lights[2]
     case LIGHTING3: selectedLight = &Lights[3]
-    default:
-        panic("Invalid light ID")
+    default: panic("Invalid light ID")
     }
     switch attribute {
     case POSITION:
@@ -141,7 +132,7 @@ func Lightfv(id, attribute int, value []float32) {
             selectedLight.Pos = Vec3{value[0],value[1],value[2]}
         }
     case DIFFUSE:
-        selectedLight.Color = Color{value[0],value[1],value[2]}
+        selectedLight.Color = SRColor{value[0],value[1],value[2]}
     default:
         panic("Invalid light attribute")
     }
@@ -157,14 +148,14 @@ func Vertex3f(x, y, z float32) {
     Submit.c = SubmitC
     quad := Submit
 
-    var screenCoordsx [4]int
-    var screenCoordsy [4]int
+    var sx [4]int
+    var sy [4]int
     var transformedVerts [4]Vec4
 
     for j := 0; j < 4; j++ {
         transformed := transformVertex(quad.v[j], MatrixModelView)
         transformedVerts[j] = transformed
-        screenCoordsx[j], screenCoordsy[j] = viewportTransform(perspectiveDivide(transformed))
+        sx[j], sy[j] = viewportTransform(perspectiveDivide(transformed))
     }
 
     v0 := transformedVerts[0] // Per-face lighting
@@ -206,93 +197,86 @@ func Vertex3f(x, y, z float32) {
         default:
             panic(1)
         }
-
         
-        diff := dot(normal, L) // Diffuse term
-        if diff < 0 {
-            diff = 0
+        diffuse := dot(normal, L)
+        if diffuse < 0 {
+            diffuse = 0
         }
 
-        totalR += base.r * light.Color.r * diff // Add contribution from this light
-        totalG += base.g * light.Color.g * diff
-        totalB += base.b * light.Color.b * diff
+        totalR += base.r * light.Color.r * diffuse // Add contribution from this light
+        totalG += base.g * light.Color.g * diffuse
+        totalB += base.b * light.Color.b * diffuse
     }
     
-    var color Color
+    var color SRColor
     if enabledLights {
         if totalR > 1 { totalR = 1 } // Clamp to [0,1]
         if totalG > 1 { totalG = 1 }
         if totalB > 1 { totalB = 1 }
-        color = Color{r: totalR, g: totalG, b: totalB}
+        color = SRColor{r: totalR, g: totalG, b: totalB}
     } else {
         color = base
     }
     
-    var dist float32
+    var distance float32 = 0
     for j := 0; j < 4; j++ {
         dx := transformedVerts[j].x
         dy := transformedVerts[j].y
         dz := transformedVerts[j].z
-        dist += dx*dx + dy*dy + dz*dz
+        distance += dx*dx + dy*dy + dz*dz
     }
-    dist /= 4 // average distance
-
-    i := screenCoordsx
-    j := screenCoordsy
-    distance := dist
+    distance /= 4
 
     switch polygonModeFront {
     case LINE:
-        v0 := IVec2{i[0], j[0]}
-        v1 := IVec2{i[1], j[1]}
-        v2 := IVec2{i[2], j[2]}
-        v3 := IVec2{i[3], j[3]}
-        Vertices = append(Vertices, drawLine(v0, v1, distance)...)
-        Vertices = append(Vertices, drawLine(v1, v2, distance)...)
-        Vertices = append(Vertices, drawLine(v2, v3, distance)...)
-        Vertices = append(Vertices, drawLine(v3, v0, distance)...)
+        v0 := IVec2{sx[0], sy[0]}
+        v1 := IVec2{sx[1], sy[1]}
+        v2 := IVec2{sx[2], sy[2]}
+        v3 := IVec2{sx[3], sy[3]}
+        drawLine(v0, v1, distance)
+        drawLine(v1, v2, distance)
+        drawLine(v2, v3, distance)
+        drawLine(v3, v0, distance)
     case POINT:
         for k := 0; k < 4; k++ {
-            curr := IVec2{i[k], j[k]}
-            Vertices = append(Vertices, curr)
-            Colors = append(Colors, color)
-            Depth = append(Depth, distance)
+            if  (sx[k] < framebuffer.h) && (sx[k] > 0) && (sy[k] < framebuffer.v) && (sy[k] > 0) {
+                if zBuffer[sx[k]+sy[k]*framebuffer.h] > distance {
+                    framebuffer.d[sx[k]+sy[k]*framebuffer.h] = SubmitC
+                    zBuffer[sx[k]+sy[k]*framebuffer.h] = distance
+                }
+            }
         }
     case FILL:
         v := [4]IVec2{
-            {i[0], j[0]},
-            {i[1], j[1]},
-            {i[2], j[2]},
-            {i[3], j[3]},
+            {sx[0], sy[0]},
+            {sx[1], sy[1]},
+            {sx[2], sy[2]},
+            {sx[3], sy[3]},
         }
-        Vertices = append(Vertices, fillTriangle(v[0], v[1], v[2], distance, color)...) // v0-v1-v2
-        Vertices = append(Vertices, fillTriangle(v[0], v[2], v[3], distance, color)...) // v0-v2-v3
+        fillTriangle(v[0], v[1], v[2], distance, color) // v0-v1-v2
+        fillTriangle(v[0], v[2], v[3], distance, color) // v0-v2-v3
     }
 
     lastVertex = nil
     SubmitI = 0
 }
 
-
-
-
-func Translatef(f []float32){
-    
+func Translatef(x, y, z float32) {
+    t := [16]float32{
+        1, 0, 0, 0,
+        0, 1, 0, 0,
+        0, 0, 1, 0,
+        x, y, z, 1,
+    }
+    MatrixModelView = multMatrix(MatrixModelView, t)
 }
 
-
-func Rotatef(f []float32){
-    if len(f) < 4 {
-        panic("Rotatef requires 4 values: angle (deg), x, y, z")
-    }
-    angle := f[0] * (PI / 180.0) // degrees to radians
-    x, y, z := f[1], f[2], f[3]
+func Rotatef(angle, x, y, z float32){
+    angle *= (PI / 180.0) // degrees to radians
     length := float32(math.Sqrt(float64(x*x + y*y + z*z))) // normalize axis
     x /= length
     y /= length
     z /= length
-    
-    
     c := float32(math.Cos(float64(angle)))
     s := float32(math.Sin(float64(angle)))
     ic := 1 - c
@@ -302,34 +286,15 @@ func Rotatef(f []float32){
         x*z*ic+y*s,   y*z*ic-x*s, c + z*z*ic, 0,
         0,            0,          0,          1,
     }
-    MatrixModelView = MultMatrix(MatrixModelView, r)
+    MatrixModelView = multMatrix(MatrixModelView, r)
 }
 
-//~ func Blend
-
-// yet to decide an portable way of handling colors
-// an 16 color terminal view would have 8 colors with 3 levels of brightness
 func Color3f(r, g, b float32) {
-    SubmitC = Color{r, g, b}
+    SubmitC = SRColor{r, g, b}
 }
 
-// we only intend on supporting quads
-// for now Begin doesn't do anything
 func Begin() { }
-
-// End pops all the quads we've created to the framebuffer
-func End() {
-    mx, my  := XY()
-    for k, v := range Vertices {
-        if (v.x > 0) && (v.x < mx) && (v.y > 0) && (v.y < my) {
-            index := v.x + mx*v.y
-            if Depth[k] < zBuffer[index] {
-                framebuffer.d[index] = Colors[k]
-                zBuffer[index] = Depth[k]
-            }
-        }
-    }
-}
+func End() { }
 
 func ReadPixels() (image [][3]float32) {
     mx, my  := XY()
@@ -350,13 +315,10 @@ func ClearColor(r, g, b float32) {
     mx, my  := XY()
     for i := 0; i < my; i++ {
         for j := 0; j < mx; j++ {
-            framebuffer.d[j+i*mx] = Color{r,g,b}
+            framebuffer.d[j+i*mx] = SRColor{r,g,b}
             zBuffer[j+i*mx] = 999999999.0
         }
     }
-    Vertices = Vertices[:0:0]
-    Colors   =   Colors[:0:0]
-    Depth    =    Depth[:0:0]
 }
 
 func transformVertex(v Vec4, m [16]float32) Vec4 {
@@ -382,19 +344,6 @@ func perspectiveDivide(v Vec4) Vec3 {
     }
 }
 
-func abs(f int) int {
-    if f < 0 {
-        return -f
-    }
-    return f
-}
-func absf(f float32) float32 {
-    if f < 0 {
-        return -f
-    }
-    return f
-}
-
 func normalize(v Vec3) Vec3 {
     len := float32(math.Sqrt(float64(v.x*v.x + v.y*v.y + v.z*v.z)))
     return Vec3{v.x / len, v.y / len, v.z / len}
@@ -413,12 +362,9 @@ func dot(a, b Vec3) float32 {
 }
 
 func LookAt(a1, a2, a3, b1, b2, b3 float32) [16]float32 {
-    
     eye := Vec3{a1, a2, a3}
     center := Vec3{b1, b2, b3}
-    
 	up := Vec3{0, 1, 0}
-
 	z := normalize(Vec3{
 		x: eye.x - center.x,
 		y: eye.y - center.y,
@@ -444,7 +390,7 @@ func Frustum(left, right, bottom, top, near, far float32) [16]float32 {
 	}
 }
 
-func MultMatrix(a, b [16]float32) [16]float32 {
+func multMatrix(a, b [16]float32) [16]float32 {
 	var r [16]float32
 	for row := 0; row < 4; row++ {
 		for col := 0; col < 4; col++ {
@@ -459,42 +405,36 @@ func MultMatrix(a, b [16]float32) [16]float32 {
 }
 
 func SetCamera(projection, view [16]float32) {
-    MatrixModelView = MultMatrix(projection, view)
+    MatrixModelView = multMatrix(projection, view)
 }
 
-// Bresenham line drawing algorithm
-func drawLine(a, b IVec2, distance float32) []IVec2 {
-    var points []IVec2
-
+func drawLine(a, b IVec2, distance float32) {
+    abs := func (f int) int {
+        if f < 0 {
+            return -f
+        }
+        return f
+    }
     x0, y0 := a.x, a.y
     x1, y1 := b.x, b.y
-
     dx :=  abs(x1 - x0)
     dy := -abs(y1 - y0)
-
     sx := 1
     if x0 >= x1 {
         sx = -1
     }
-
     sy := 1
     if y0 >= y1 {
         sy = -1
     }
-
     err := dx + dy
     for {
-        if (x0 < 0) || (x0 > (framebuffer.h-1)) || (y0 < 0) || (y0 > (framebuffer.v-1)) {
-            break
+        if  (x0 < framebuffer.h) && (x0 > 0) && (y0 < framebuffer.v) && (y0 > 0) {
+            if zBuffer[x0+y0*framebuffer.h] > distance {
+                framebuffer.d[x0+y0*framebuffer.h] = SubmitC
+                zBuffer[x0+y0*framebuffer.h] = distance
+            }
         }
-		
-        points = append(points, IVec2{x0, y0})
-        
-        Colors = append(Colors, SubmitC) // temporary: color the vertex
-        
-        Depth = append(Depth, distance)
-        
-        
         if x0 == x1 && y0 == y1 {
             break
         }
@@ -508,25 +448,9 @@ func drawLine(a, b IVec2, distance float32) []IVec2 {
             y0 += sy
         }
     }
-    
-    return points
 }
 
-
-func fillTriangle(v0, v1, v2 IVec2, distance float32, color Color) []IVec2 {
-    var result []IVec2
-
-    // Sort vertices by y-coordinate ascending (v0.y <= v1.y <= v2.y)
-    if v1.y < v0.y {
-        v0, v1 = v1, v0
-    }
-    if v2.y < v0.y {
-        v0, v2 = v2, v0
-    }
-    if v2.y < v1.y {
-        v1, v2 = v2, v1
-    }
-
+func fillTriangle(v0, v1, v2 IVec2, distance float32, color SRColor) {
     edgeInterpolate := func(y0, y1, x0, x1 int) []int {
         var result []int
         dy := y1 - y0
@@ -540,17 +464,21 @@ func fillTriangle(v0, v1, v2 IVec2, distance float32, color Color) []IVec2 {
         }
         return result
     }
-
-    // Interpolate edges
+    if v1.y < v0.y {     // Sort vertices by y-coordinate ascending (v0.y <= v1.y <= v2.y)
+        v0, v1 = v1, v0
+    }
+    if v2.y < v0.y {
+        v0, v2 = v2, v0
+    }
+    if v2.y < v1.y {
+        v1, v2 = v2, v1
+    }
     x01 := edgeInterpolate(v0.y, v1.y, v0.x, v1.x)
     x12 := edgeInterpolate(v1.y, v2.y, v1.x, v2.x)
     x02 := edgeInterpolate(v0.y, v2.y, v0.x, v2.x)
-
     x012 := append(x01[:len(x01)-1], x12...)
-
     yStart := v0.y
     yEnd := v2.y
-
     for y := yStart; y <= yEnd; y++ {
         i := y - yStart
         var xa, xb int
@@ -560,12 +488,13 @@ func fillTriangle(v0, v1, v2 IVec2, distance float32, color Color) []IVec2 {
                 xa, xb = xb, xa
             }
             for x := xa; x <= xb; x++ {
-                result = append(result, IVec2{x, y})
-                Colors = append(Colors, color)  // temporary: color the vertex
-                Depth = append(Depth, distance) // temporary: add distance for the z buffer
+                if  (x < framebuffer.h) && (x > 0) && (y < framebuffer.v) && (y > 0) {
+                    if zBuffer[x+y*framebuffer.h] > distance {
+                        framebuffer.d[x+y*framebuffer.h] = color
+                        zBuffer[x+y*framebuffer.h] = distance
+                    }
+                }
             }
         }
     }
-    return result
 }
-
