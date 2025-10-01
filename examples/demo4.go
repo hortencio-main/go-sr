@@ -110,7 +110,6 @@ func main() {
             }
             buffer = append(buffer, '\n')
         }
-		fmt.Print("\033[H\033[2J")
         fmt.Println(string(buffer))
         buffer = buffer[:0:0]
         

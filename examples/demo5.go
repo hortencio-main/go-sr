@@ -60,8 +60,8 @@ func main() {
 
         sr.Rotatef([]float32{
             float32(angle),
-            0.1,
-            0.5,
+             0.1,
+             0.5,
             -0.1,
         })
 		angle += 2

@@ -53,12 +53,7 @@ func main() {
         sr.SetCamera(proj, view)
         sr.ClearColor(0,0,0)
 
-        sr.Rotatef([]float32{
-            float32(angleYaw),
-            0.1,
-            1.0,
-            0,
-        })
+        sr.Rotatef(float32(angleYaw), 0.1, 1.0, 0)
         angleYaw += 2.0
         sr.Begin()
             for v := 0; v < len(sphere); v+=4 {
@@ -87,6 +82,7 @@ func main() {
         time.Sleep(time.Second / 60.0)
     }
 }
+
 
 var sphere = [][3]float32{
 	{ 0.195090,0.980785,-0.000001 }, 
