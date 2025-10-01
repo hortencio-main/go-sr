@@ -52,7 +52,7 @@ func main() {
     )
     
     sr.Begin()
-    sr.Rotatef( []float32{110, 1.0, 0, 5.0} )
+    sr.Rotatef(110, 1.0, 0, 5.0)
         for v := 0; v < len(cube); v+=4 {
             //~ sr.Color3f( 1.0, 0.0, 0.0)
             sr.Color3f( rand.Float32(), rand.Float32(), rand.Float32())

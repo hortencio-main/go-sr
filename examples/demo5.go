@@ -58,12 +58,7 @@ func main() {
 
         sr.ClearColor(0,0,0)
 
-        sr.Rotatef([]float32{
-            float32(angle),
-             0.1,
-             0.5,
-            -0.1,
-        })
+        sr.Rotatef(float32(angle),0.1,0.5,-0.1)
 		angle += 2
 
         sr.Begin()

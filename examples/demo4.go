@@ -61,12 +61,7 @@ func main() {
         sr.SetCamera(proj, view)
         sr.ClearColor(0,0,0)
         
-        sr.Rotatef([]float32{
-            float32(angle),
-            0.1,
-            1.0,
-            0,
-        })
+        sr.Rotatef(float32(angle), 0.1, 1.0, 0)
         angle += 2.0
         
         sr.Begin()
